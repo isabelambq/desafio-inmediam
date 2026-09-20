@@ -8,6 +8,7 @@ use App\Models\Payment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Client\ConnectionException;
 use Carbon\Carbon;
 
 class BillingController
@@ -67,12 +68,18 @@ class BillingController
 
         } else {
 
-            $customer = Http::withHeaders(['access_token' => $apiKey])->post("$baseUrl/customers", [
-                'name' => $billing->customer->name,
-                'email' => $billing->customer->email,
-                'cpfCnpj' => $billing->customer->document,
-                'notificationDisabled' => true,
-            ]);
+           try {
+                $customer = Http::withHeaders(['access_token' => $apiKey])->post("$baseUrl/customers", [
+                    'name' => $billing->customer->name,
+                    'email' => $billing->customer->email,
+                    'cpfCnpj' => $billing->customer->document,
+                    'notificationDisabled' => true,
+                ]);
+            } catch (ConnectionException $e) {
+                return response()->json([
+                    'error' => 'Não foi possível conectar à Asaas'
+                ], 502);
+            }
 
             if (!$customer->successful()) {
                 return response()->json([
@@ -87,12 +94,18 @@ class BillingController
 
         }
 
-        $charge = Http::withHeaders(['access_token' => $apiKey])->post("$baseUrl/payments", [
-            'customer' => $asaasCustomerId,
-            'billingType' => 'CREDIT_CARD',
-            'value' => $billing->amount,
-            'dueDate' => $billing->due_date,
-        ]);
+        try {
+            $charge = Http::withHeaders(['access_token' => $apiKey])->post("$baseUrl/payments", [
+                'customer' => $asaasCustomerId,
+                'billingType' => 'CREDIT_CARD',
+                'value' => $billing->amount,
+                'dueDate' => $billing->due_date,
+            ]);
+        } catch (ConnectionException $e) {
+            return response()->json([
+                'error' => 'Não foi possível conectar à Asaas'
+            ], 502);
+        }
 
         if (!$charge->successful()) {
             return response()->json([
@@ -102,23 +115,29 @@ class BillingController
 
         $charge = (object) $charge->json();
 
-        $response = Http::withHeaders(['access_token' => $apiKey])->post("$baseUrl/payments/{$charge->id}/payWithCreditCard", [
-            'creditCard' => [
-                'holderName' => $request->card_holder_name,
-                'number' => $request->card_number,
-                'expiryMonth' => explode('/', $request->expiry_date)[0],
-                'expiryYear' => '20' . explode('/', $request->expiry_date)[1],
-                'ccv' => $request->cvv,
-            ],
-            'creditCardHolderInfo' => [
-                'name' => $billing->customer->name,
-                'email' => $billing->customer->email,
-                'cpfCnpj' => $billing->customer->document,
-                'phone' => $billing->customer->phone,
-                'postalCode' => $billing->customer->postal_code,
-                'addressNumber' => $billing->customer->address_number,
-            ],
-        ]);
+        try {
+            $response = Http::withHeaders(['access_token' => $apiKey])->post("$baseUrl/payments/{$charge->id}/payWithCreditCard", [
+                'creditCard' => [
+                    'holderName' => $request->card_holder_name,
+                    'number' => $request->card_number,
+                    'expiryMonth' => explode('/', $request->expiry_date)[0],
+                    'expiryYear' => '20' . explode('/', $request->expiry_date)[1],
+                    'ccv' => $request->cvv,
+                ],
+                'creditCardHolderInfo' => [
+                    'name' => $billing->customer->name,
+                    'email' => $billing->customer->email,
+                    'cpfCnpj' => $billing->customer->document,
+                    'phone' => $billing->customer->phone,
+                    'postalCode' => $billing->customer->postal_code,
+                    'addressNumber' => $billing->customer->address_number,
+                ],
+            ]);
+        } catch (ConnectionException $e) {
+            return response()->json([
+                'error' => 'Não foi possível conectar à Asaas'
+            ], 502);
+        }
 
         if (!$response->successful()) {
             return response()->json([
