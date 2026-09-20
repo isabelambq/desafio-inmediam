@@ -61,29 +61,34 @@ class BillingController
         $apiKey = env('ASAAS_API_KEY');
         $baseUrl = "https://sandbox.asaas.com/api/v3";
 
-        try {
+        if ($billing->customer->asaas_customer_id) {
+
+            $asaasCustomerId = $billing->customer->asaas_customer_id;
+
+        } else {
+
             $customer = Http::withHeaders(['access_token' => $apiKey])->post("$baseUrl/customers", [
                 'name' => $billing->customer->name,
                 'email' => $billing->customer->email,
                 'cpfCnpj' => $billing->customer->document,
                 'notificationDisabled' => true,
             ]);
-       } catch (\Throwable $e) {
-            return response()->json([
-                'error' => 'Erro ao criar cliente na Asaas'
-            ], 502);
-        }
 
-        if (!$customer->successful()) {
-            return response()->json([
-                'error' => 'Erro ao criar cliente na Asaas'
-            ], 502);
-        }
+            if (!$customer->successful()) {
+                return response()->json([
+                    'error' => 'Erro ao criar cliente na Asaas'
+                ], 502);
+            }
 
-        $customer = (object) $customer->json();
+            $asaasCustomerId = $customer->json('id');
+            
+            $billing->customer->asaas_customer_id = $asaasCustomerId;
+            $billing->customer->save();
+
+        }
 
         $charge = Http::withHeaders(['access_token' => $apiKey])->post("$baseUrl/payments", [
-            'customer' => $customer->id,
+            'customer' => $asaasCustomerId,
             'billingType' => 'CREDIT_CARD',
             'value' => $billing->amount,
             'dueDate' => $billing->due_date,
@@ -109,9 +114,9 @@ class BillingController
                 'name' => $billing->customer->name,
                 'email' => $billing->customer->email,
                 'cpfCnpj' => $billing->customer->document,
-                'phone' => '0000000000',
-                'postalCode' => '00000000',
-                'addressNumber' => '0',
+                'phone' => $billing->customer->phone,
+                'postalCode' => $billing->customer->postal_code,
+                'addressNumber' => $billing->customer->address_number,
             ],
         ]);
 
