@@ -59,8 +59,8 @@ class BillingController
             ], 422);
         }
 
-        $apiKey = env('ASAAS_API_KEY');
-        $baseUrl = "https://sandbox.asaas.com/api/v3";
+        $apiKey = config('services.asaas.api_key');
+        $baseUrl = config('services.asaas.base_url');
 
         if ($billing->customer->asaas_customer_id) {
 
