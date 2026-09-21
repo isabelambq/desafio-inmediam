@@ -11,6 +11,7 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
+// Valida os dados no frontend antes de enviar o pagamento para o backend.
 const paymentSchema = z.object({
   cardNumber: z.string().min(13).max(19),
   holderName: z.string().min(2),
@@ -51,6 +52,7 @@ export function PaymentForm({ billingId }: PaymentFormProps) {
       axios
         .create()
         .post(`http://localhost:8000/api/billing/${billingId}/pay`, {
+          // Remove a formatação antes de enviar o número do cartão ao backend.
           card_number: data.cardNumber.replace(/\D/g, ''),
           card_holder_name: data.holderName,
           expiry_date: data.expiryDate,
@@ -59,6 +61,7 @@ export function PaymentForm({ billingId }: PaymentFormProps) {
     onSuccess: () => {
       toast.success('Pagamento realizado com sucesso!')
     },
+    // Exibe uma mensagem de erro quando o pagamento não é processado.
     onError: () => {
       toast.error('Erro ao processar o pagamento!')
     },
@@ -87,14 +90,16 @@ export function PaymentForm({ billingId }: PaymentFormProps) {
       <form onSubmit={handleSubmit(handlePayment)} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="cardNumber">Número do cartão</Label>
+          {/* Aplica máscara visual ao cartão, mantendo apenas os números no valor enviado à API. */}
           <Input
             id="cardNumber"
             placeholder="0000 0000 0000 0000"
             value={cardNumber}
             {...register('cardNumber')}
             onChange={(e) => {
-              const value = e.target.value.replace(/\D/g, '')
-              setCardNumber(e.target.value)
+              const value = e.target.value.replace(/\D/g, '').slice(0, 19)
+              const formattedValue = value.match(/.{1,4}/g)?.join(' ') || ''
+              setCardNumber(formattedValue)
               setValue('cardNumber', value, { shouldValidate: true })
             }}
             onFocus={() => setFocused('number')}
@@ -124,10 +129,19 @@ export function PaymentForm({ billingId }: PaymentFormProps) {
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="expiryDate">Validade</Label>
+            {/* Formata a validade automaticamente no padrão MM/AA. */}
             <Input
               id="expiryDate"
               placeholder="MM/AA"
               {...register('expiryDate')}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '').slice(0, 4)
+                const formattedValue =
+                  value.length > 2
+                    ? `${value.slice(0, 2)}/${value.slice(2)}`
+                    : value
+                setValue('expiryDate', formattedValue, { shouldValidate: true })
+              }}
               onFocus={() => setFocused('expiry')}
             />
             {errors.expiryDate && (
@@ -145,8 +159,10 @@ export function PaymentForm({ billingId }: PaymentFormProps) {
               value={cvv}
               {...register('cvv')}
               onChange={(e) => {
-                setCvv(e.target.value)
-                register('cvv').onChange(e)
+                // Permite somente números e limita o CVV a quatro dígitos.
+                const value = e.target.value.replace(/\D/g, '').slice(0, 4)
+                setCvv(value)
+                setValue('cvv', value, { shouldValidate: true })
               }}
               onFocus={() => setFocused('cvc')}
             />

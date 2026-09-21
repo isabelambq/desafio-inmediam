@@ -52,6 +52,7 @@ export function Billing() {
 
           <div className="flex items-center justify-between border-t border-border pt-4">
             <span className="text-sm text-muted-foreground">Valor</span>
+            {/* Converte o valor recebido pela API para número antes da formatação monetária. */}
             <span className="font-bold text-foreground">
               {data?.amount ? currencyFormatter.format(Number(data.amount)) : ''}
             </span>
@@ -73,6 +74,7 @@ export function Billing() {
         </div>
       </div>
 
+      {/* O formulário recebe apenas o ID da cobrança; o valor é controlado pelo backend. */}
       {data && data.status === 'pending' && (
         <PaymentForm billingId={id!} />
       )}
