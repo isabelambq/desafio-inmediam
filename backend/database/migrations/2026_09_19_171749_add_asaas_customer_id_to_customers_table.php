@@ -12,7 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('customers', function (Blueprint $table) {
-            //
+            // Armazena o ID do cliente na Asaas para reutilização em pagamentos futuros.
+            $table->string('asaas_customer_id')->nullable()->unique();
         });
     }
 
@@ -22,7 +23,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('customers', function (Blueprint $table) {
-            //
+            $table->dropColumn('asaas_customer_id');
         });
     }
 };
