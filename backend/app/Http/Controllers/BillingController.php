@@ -15,7 +15,8 @@ class BillingController
 {
     public function show(string $id): JsonResponse
     {
-        $billing = Billing::with(['plan', 'payments.creditCard'])->find($id);
+        // Retorna apenas os dados necessários para exibir a cobrança e o plano.
+        $billing = Billing::with('plan')->find($id);
 
         if (!$billing) {
             return response()->json(['error' => 'Cobrança não encontrada'], 404);
@@ -38,6 +39,7 @@ class BillingController
             ], 409);
         }
 
+        // Valida os dados do cartão antes de iniciar qualquer chamada à Asaas.
         $request->validate([
             'card_holder_name' => 'required|string|max:255',
             'card_number' => 'required|string|digits_between:13,19',
@@ -49,6 +51,7 @@ class BillingController
             'cvv' => 'required|string|digits_between:3,4',
         ]);
 
+        // Converte a validade do cartão para uma data e impede o uso de cartões expirados.
         [$month, $year] = explode('/', $request->expiry_date);
         $year = '20' . $year;
         $expiryDate = Carbon::createFromDate($year, $month)->endOfMonth();
@@ -59,16 +62,17 @@ class BillingController
             ], 422);
         }
 
+        // Carrega as configurações do Asaas centralizadas em config/services.php.
         $apiKey = config('services.asaas.api_key');
         $baseUrl = config('services.asaas.base_url');
 
+        // Reutiliza o cliente já cadastrado na Asaas para evitar a criação de duplicados.
         if ($billing->customer->asaas_customer_id) {
-
             $asaasCustomerId = $billing->customer->asaas_customer_id;
-
         } else {
-
-           try {
+            // Cria o cliente na Asaas somente quando ele ainda não possui um ID cadastrado.
+            // Trata falhas de comunicação com a Asaas separadamente de erros HTTP retornados pela API.
+            try {
                 $customer = Http::withHeaders(['access_token' => $apiKey])->post("$baseUrl/customers", [
                     'name' => $billing->customer->name,
                     'email' => $billing->customer->email,
@@ -84,7 +88,7 @@ class BillingController
             if (!$customer->successful()) {
                 return response()->json([
                     'error' => 'Erro ao criar cliente na Asaas'
-                ], 502);
+                ], $customer->status());
             }
 
             $asaasCustomerId = $customer->json('id');
@@ -98,6 +102,7 @@ class BillingController
             $charge = Http::withHeaders(['access_token' => $apiKey])->post("$baseUrl/payments", [
                 'customer' => $asaasCustomerId,
                 'billingType' => 'CREDIT_CARD',
+                // Usa o valor da cobrança armazenado no banco, evitando confiar em um valor enviado pelo frontend.
                 'value' => $billing->amount,
                 'dueDate' => $billing->due_date,
             ]);
@@ -110,7 +115,7 @@ class BillingController
         if (!$charge->successful()) {
             return response()->json([
                 'error' => 'Erro ao criar cobrança na Asaas'
-            ], 502);
+            ], $charge->status());
         }
 
         $charge = (object) $charge->json();
@@ -124,6 +129,7 @@ class BillingController
                     'expiryYear' => '20' . explode('/', $request->expiry_date)[1],
                     'ccv' => $request->cvv,
                 ],
+                // Utiliza os dados de contato do cliente armazenados no banco para preencher as informações exigidas pela Asaas.
                 'creditCardHolderInfo' => [
                     'name' => $billing->customer->name,
                     'email' => $billing->customer->email,
@@ -142,25 +148,35 @@ class BillingController
         if (!$response->successful()) {
             return response()->json([
                 'error' => 'Erro ao processar pagamento na Asaas'
-            ], 502);
+            ], $response->status());
         }
 
         $response = (object) $response->json();
 
+        // Garante que o pagamento foi confirmado pela Asaas antes de registrá-lo como pago localmente.
         if ($response->status !== 'CONFIRMED') {
             return response()->json([
                 'error' => 'Pagamento não concluído'
-            ], 502);
+            ], 422);
         }
 
-        $credit_card = CreditCard::create([
-            'customer_id' => $billing->customer_id,
-            'card_holder_name' => $request->card_holder_name,
-            'card_last_four' => $response->creditCard['creditCardNumber'],
-            'card_brand' => $response->creditCard['creditCardBrand'],
-            'card_token' => $response->creditCard['creditCardToken'],
-        ]);
+        // Procura um cartão já cadastrado para o cliente usando o token retornado pela Asaas.
+        $credit_card = CreditCard::where('customer_id', $billing->customer_id)
+            ->where('card_token', $response->creditCard['creditCardToken'])
+            ->first();
 
+        // Cria um novo registro somente quando o cartão ainda não estiver cadastrado.
+        if (!$credit_card) {
+            $credit_card = CreditCard::create([
+                'customer_id' => $billing->customer_id,
+                'card_holder_name' => $request->card_holder_name,
+                'card_last_four' => $response->creditCard['creditCardNumber'],
+                'card_brand' => $response->creditCard['creditCardBrand'],
+                'card_token' => $response->creditCard['creditCardToken'],
+            ]);
+        }
+
+        // Registra o pagamento aprovado no banco de dados local.
         $payment = Payment::create([
             'billing_id' => $billing->id,
             'credit_card_id' => $credit_card->id,
@@ -169,6 +185,7 @@ class BillingController
             'paid_at' => now(),
         ]);
 
+        // Atualiza a cobrança local após a confirmação do pagamento.
         $billing->status = 'paid';
         $billing->save();
 
