@@ -12,20 +12,19 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 
 const paymentSchema = z.object({
-  cardNumber: z.string(),
-  holderName: z.string(),
-  expiryDate: z.string(),
-  cvv: z.string(),
+  cardNumber: z.string().min(13).max(19),
+  holderName: z.string().min(2),
+  expiryDate: z.string().regex(/^(0[1-9]|1[0-2])\/\d{2}$/),
+  cvv: z.string().min(3).max(4),
 })
 
 type PaymentFormData = z.infer<typeof paymentSchema>
 
 interface PaymentFormProps {
   billingId: string
-  amount: number
 }
 
-export function PaymentForm({ billingId, amount }: PaymentFormProps) {
+export function PaymentForm({ billingId }: PaymentFormProps) {
   const [cardNumber, setCardNumber] = useState<string>()
   const [cvv, setCvv] = useState<string>()
   const [focused, setFocused] = useState<Focused>('')
@@ -34,6 +33,7 @@ export function PaymentForm({ billingId, amount }: PaymentFormProps) {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
@@ -51,17 +51,16 @@ export function PaymentForm({ billingId, amount }: PaymentFormProps) {
       axios
         .create()
         .post(`http://localhost:8000/api/billing/${billingId}/pay`, {
-          card_number: data.cardNumber,
+          card_number: data.cardNumber.replace(/\D/g, ''),
           card_holder_name: data.holderName,
           expiry_date: data.expiryDate,
           cvv: data.cvv,
-          amount,
         }),
     onSuccess: () => {
       toast.success('Pagamento realizado com sucesso!')
     },
     onError: () => {
-      toast.success('Dados salvos com sucesso!')
+      toast.error('Erro ao processar o pagamento!')
     },
   })
 
@@ -94,8 +93,9 @@ export function PaymentForm({ billingId, amount }: PaymentFormProps) {
             value={cardNumber}
             {...register('cardNumber')}
             onChange={(e) => {
+              const value = e.target.value.replace(/\D/g, '')
               setCardNumber(e.target.value)
-              register('cardNumber').onChange(e)
+              setValue('cardNumber', value, { shouldValidate: true })
             }}
             onFocus={() => setFocused('number')}
           />

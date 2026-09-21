@@ -53,7 +53,7 @@ export function Billing() {
           <div className="flex items-center justify-between border-t border-border pt-4">
             <span className="text-sm text-muted-foreground">Valor</span>
             <span className="font-bold text-foreground">
-              {currencyFormatter.format(data?.amount)}
+              {data?.amount ? currencyFormatter.format(Number(data.amount)) : ''}
             </span>
           </div>
 
@@ -74,7 +74,7 @@ export function Billing() {
       </div>
 
       {data && data.status === 'pending' && (
-        <PaymentForm billingId={id!} amount={data?.amount} />
+        <PaymentForm billingId={id!} />
       )}
 
       {data && data.status === 'paid' && data.payments?.[0] && (
