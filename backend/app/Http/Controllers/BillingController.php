@@ -13,6 +13,22 @@ use Carbon\Carbon;
 
 class BillingController
 {
+    public function index(): JsonResponse
+    {
+        // Retorna apenas os dados necessários para a listagem das cobranças.
+        return response()->json(
+            Billing::with([
+                'plan:id,name',
+                'customer:id,name',
+            ])->get([
+                'id',
+                'plan_id',
+                'customer_id',
+                'status',
+            ])
+        );
+    }
+
     public function show(string $id): JsonResponse
     {
         // Retorna apenas os dados necessários para exibir a cobrança e o plano.
