@@ -2,7 +2,7 @@ import 'react-credit-cards-2/dist/es/styles-compiled.css'
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button, Input, Label } from '@inmediam/ui'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
@@ -12,8 +12,9 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 
 // Valida os dados no frontend antes de enviar o pagamento para o backend.
+// O cartão considera também os espaços da máscara visual.
 const paymentSchema = z.object({
-  cardNumber: z.string().min(13).max(19),
+  cardNumber: z.string().min(13).max(23),
   holderName: z.string().min(2),
   expiryDate: z.string().regex(/^(0[1-9]|1[0-2])\/\d{2}$/),
   cvv: z.string().min(3).max(4),
@@ -47,6 +48,7 @@ export function PaymentForm({ billingId }: PaymentFormProps) {
     cvv: watch('cvv', ''),
   }
 
+  const queryClient = useQueryClient()
   const { mutateAsync: submitPayment, isPending } = useMutation({
     mutationFn: (data: PaymentFormData) =>
       axios
@@ -60,6 +62,8 @@ export function PaymentForm({ billingId }: PaymentFormProps) {
         }),
     onSuccess: () => {
       toast.success('Pagamento realizado com sucesso!')
+      // Atualiza os dados da cobrança após o pagamento para refletir o novo status na tela.
+      queryClient.invalidateQueries({ queryKey: ['billing', billingId] })
     },
     // Exibe uma mensagem de erro quando o pagamento não é processado.
     onError: () => {
