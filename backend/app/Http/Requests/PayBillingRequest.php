@@ -7,12 +7,6 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class PayBillingRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        // Não há autenticação ou regra de autorização implementada para este endpoint.
-        return true;
-    }
-
     public function rules(): array
     {
         // Valida os dados do cartão antes que o pagamento seja processado.
