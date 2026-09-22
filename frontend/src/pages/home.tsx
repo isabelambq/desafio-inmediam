@@ -15,7 +15,7 @@ export function Home() {
         .create()
         .get('http://localhost:8000/api/billing')
 
-      return response.data
+      return response.data.data
     },
   })
   return (

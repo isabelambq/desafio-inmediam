@@ -137,6 +137,7 @@ export function PaymentForm({ billingId }: PaymentFormProps) {
             <Input
               id="expiryDate"
               placeholder="MM/AA"
+              value={watchedValues.expiryDate}
               {...register('expiryDate')}
               onChange={(e) => {
                 const value = e.target.value.replace(/\D/g, '').slice(0, 4)

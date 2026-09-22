@@ -31,6 +31,7 @@ class BillingController
             ])
             ->with([
                 'plan:id,name,description,price,active',
+                'customer:id,name',
             ])
             ->paginate();
 
@@ -39,7 +40,7 @@ class BillingController
 
     public function show(Billing $billing): JsonResponse|BillingResource
     {
-        $billing->load('plan');
+        $billing->load('plan', 'payments.creditCard');
 
         return new BillingResource($billing);
     }

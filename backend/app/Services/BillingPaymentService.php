@@ -75,8 +75,8 @@ class BillingPaymentService
             ],
             [
                 'card_holder_name' => $data['card_holder_name'],
-                'card_last_four' => $responseData['creditCard']['last4'],
-                'card_brand' => $responseData['creditCard']['brand'],
+                'card_last_four' => $responseData['creditCard']['creditCardNumber'],
+                'card_brand' => $responseData['creditCard']['creditCardBrand'],
             ]
         );
 

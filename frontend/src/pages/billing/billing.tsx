@@ -19,7 +19,7 @@ export function Billing() {
       const response = await axios
         .create()
         .get(`http://localhost:8000/api/billing/${id}`)
-      return response.data
+      return response.data.data
     },
   })
 
