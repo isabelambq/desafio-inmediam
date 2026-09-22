@@ -10,11 +10,9 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class BillingPaymentService
 {
-    private AsaasService $asaasService;
-
-    public function __construct(AsaasService $asaasService)
-    {
-        $this->asaasService = $asaasService;
+    public function __construct(
+        private AsaasService $asaasService
+    ) {
     }
 
     public function pay(Billing $billing, array $data)

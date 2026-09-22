@@ -4,6 +4,7 @@ namespace App\Services;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class AsaasService
@@ -24,6 +25,9 @@ class AsaasService
         try {
             return $this->client->post('/customers', $data);
         } catch (ConnectionException $e) {
+            Log::error('Erro de conexão com a Asaas ao criar cliente.', [
+                'exception' => $e->getMessage(),
+            ]);
             throw new HttpException(
                 502,
                 'Não foi possível conectar à Asaas',
@@ -47,6 +51,10 @@ class AsaasService
         ]);
 
         if (!$response->successful()) {
+            Log::error('Erro ao criar cliente na Asaas.', [
+                'status' => $response->status(),
+                'error' => $response->json('errors.0.description'),
+            ]);
             throw new HttpException(
                 $response->status(),
                 $response->json('errors.0.description') ?? 'Erro ao criar cliente na Asaas'
@@ -65,6 +73,9 @@ class AsaasService
         try {
             return $this->client->post('/payments', $data);
         } catch (ConnectionException $e) {
+            Log::error('Erro de conexão com a Asaas ao criar cobrança.', [
+                'exception' => $e->getMessage(),
+            ]);
             throw new HttpException(
                 502,
                 'Não foi possível conectar à Asaas',
@@ -82,6 +93,10 @@ class AsaasService
                 $data
             );
         } catch (ConnectionException $e) {
+            Log::error('Erro de conexão com a Asaas ao processar pagamento com cartão.', [
+                'charge_id' => $chargeId,
+                'exception' => $e->getMessage(),
+            ]);
             throw new HttpException(
                 502,
                 'Não foi possível conectar à Asaas',
@@ -96,6 +111,10 @@ class AsaasService
         $response = $this->createPayment($paymentData);
 
         if (!$response->successful()) {
+            Log::error('Erro ao criar cobrança na Asaas.', [
+                'status' => $response->status(),
+                'error' => $response->json('errors.0.description'),
+            ]);
             throw new HttpException(
                 $response->status(),
                 $response->json('errors.0.description') ?? 'Erro ao criar cobrança na Asaas'
@@ -107,6 +126,10 @@ class AsaasService
         $response = $this->payWithCreditCard($chargeId, $cardData);
 
         if (!$response->successful()) {
+            Log::error('Erro ao processar pagamento com cartão na Asaas.', [
+                'status' => $response->status(),
+                'error' => $response->json('errors.0.description'),
+            ]);
             throw new HttpException(
                 $response->status(),
                 $response->json('errors.0.description') ?? 'Erro ao processar pagamento na Asaas'
