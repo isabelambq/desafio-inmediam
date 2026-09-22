@@ -2,26 +2,19 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class PayBillingRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
+        // Não há autenticação ou regra de autorização implementada para este endpoint.
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
+        // Valida os dados do cartão antes que o pagamento seja processado.
         return [
             'card_holder_name' => 'required|string|max:255',
             'card_number' => 'required|string|digits_between:13,19',

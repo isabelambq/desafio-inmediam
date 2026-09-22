@@ -7,12 +7,16 @@ use App\Models\CreditCard;
 use App\Models\Payment;
 use Illuminate\Http\JsonResponse;
 use App\Http\Requests\PayBillingRequest;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Http\Client\ConnectionException;
 use Carbon\Carbon;
+use App\Services\AsaasService;
 
 class BillingController
 {
+    public function __construct(
+    private AsaasService $asaasService
+    ) {
+    }
+
     public function index(): JsonResponse
     {
         // Retorna apenas os dados necessários para a listagem das cobranças.
@@ -68,66 +72,51 @@ class BillingController
             ], 422);
         }
 
-        // Carrega as configurações do Asaas centralizadas em config/services.php.
-        $apiKey = config('services.asaas.api_key');
-        $baseUrl = config('services.asaas.base_url');
-
         // Reutiliza o cliente já cadastrado na Asaas para evitar a criação de duplicados.
         if ($billing->customer->asaas_customer_id) {
             $asaasCustomerId = $billing->customer->asaas_customer_id;
         } else {
             // Cria o cliente na Asaas somente quando ele ainda não possui um ID cadastrado.
-            // Trata falhas de comunicação com a Asaas separadamente de erros HTTP retornados pela API.
-            try {
-                $customer = Http::withHeaders(['access_token' => $apiKey])->post("$baseUrl/customers", [
-                    'name' => $billing->customer->name,
-                    'email' => $billing->customer->email,
-                    'cpfCnpj' => $billing->customer->document,
-                    'notificationDisabled' => true,
-                ]);
-            } catch (ConnectionException $e) {
-                return response()->json([
-                    'error' => 'Não foi possível conectar à Asaas'
-                ], 502);
-            }
+            $customer = $this->asaasService->createCustomer([
+                'name' => $billing->customer->name,
+                'email' => $billing->customer->email,
+                'cpfCnpj' => $billing->customer->document,
+                'notificationDisabled' => true,
+            ]);
 
             if (!$customer->successful()) {
                 return response()->json([
-                    'error' => 'Erro ao criar cliente na Asaas'
+                    'error' => 'Erro ao criar cliente na Asaas',
+                    'asaas_error' => $customer->json()
                 ], $customer->status());
             }
 
             $asaasCustomerId = $customer->json('id');
-            
+
             $billing->customer->asaas_customer_id = $asaasCustomerId;
             $billing->customer->save();
-
         }
 
-        try {
-            $charge = Http::withHeaders(['access_token' => $apiKey])->post("$baseUrl/payments", [
-                'customer' => $asaasCustomerId,
-                'billingType' => 'CREDIT_CARD',
-                // Usa o valor da cobrança armazenado no banco, evitando confiar em um valor enviado pelo frontend.
-                'value' => $billing->amount,
-                'dueDate' => $billing->due_date,
-            ]);
-        } catch (ConnectionException $e) {
-            return response()->json([
-                'error' => 'Não foi possível conectar à Asaas'
-            ], 502);
-        }
+        $charge = $this->asaasService->createPayment([
+            'customer' => $asaasCustomerId,
+            'billingType' => 'CREDIT_CARD',
+            // Usa o valor da cobrança armazenado no banco, evitando confiar em valor enviado pelo frontend.
+            'value' => $billing->amount,
+            'dueDate' => $billing->due_date,
+        ]);
 
         if (!$charge->successful()) {
             return response()->json([
-                'error' => 'Erro ao criar cobrança na Asaas'
+                'error' => 'Erro ao criar cobrança na Asaas',
+                'asaas_error' => $charge->json()
             ], $charge->status());
         }
 
         $charge = (object) $charge->json();
 
-        try {
-            $response = Http::withHeaders(['access_token' => $apiKey])->post("$baseUrl/payments/{$charge->id}/payWithCreditCard", [
+        $response = $this->asaasService->payWithCreditCard(
+            $charge->id,
+            [
                 'creditCard' => [
                     'holderName' => $data['card_holder_name'],
                     'number' => $data['card_number'],
@@ -135,7 +124,6 @@ class BillingController
                     'expiryYear' => '20' . explode('/', $data['expiry_date'])[1],
                     'ccv' => $data['cvv'],
                 ],
-                // Utiliza os dados de contato do cliente armazenados no banco para preencher as informações exigidas pela Asaas.
                 'creditCardHolderInfo' => [
                     'name' => $billing->customer->name,
                     'email' => $billing->customer->email,
@@ -144,12 +132,8 @@ class BillingController
                     'postalCode' => $billing->customer->postal_code,
                     'addressNumber' => $billing->customer->address_number,
                 ],
-            ]);
-        } catch (ConnectionException $e) {
-            return response()->json([
-                'error' => 'Não foi possível conectar à Asaas'
-            ], 502);
-        }
+            ]
+        );
 
         if (!$response->successful()) {
             return response()->json([
