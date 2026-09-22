@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 
 class PayBillingRequest extends FormRequest
@@ -22,6 +23,13 @@ class PayBillingRequest extends FormRequest
                 'required',
                 'string',
                 'regex:/^(0[1-9]|1[0-2])\/\d{2}$/',
+                function ($attribute, $value, $fail) {
+                    $expiryDate = Carbon::createFromFormat('m/y', $value)->endOfMonth();
+
+                    if ($expiryDate->isPast()) {
+                        $fail('Cartão expirado');
+                    }
+                },
             ],
             'cvv' => 'required|string|digits_between:3,4',
         ];
