@@ -9,6 +9,8 @@ use Illuminate\Http\JsonResponse;
 use App\Http\Requests\PayBillingRequest;
 use Carbon\Carbon;
 use App\Services\AsaasService;
+use App\Http\Resources\BillingResource;
+use App\Http\Resources\PaymentResource;
 
 class BillingController
 {
@@ -33,7 +35,7 @@ class BillingController
         );
     }
 
-    public function show(string $id): JsonResponse
+    public function show(string $id): JsonResponse|BillingResource
     {
         // Retorna apenas os dados necessários para exibir a cobrança e o plano.
         $billing = Billing::with('plan')->find($id);
@@ -42,10 +44,10 @@ class BillingController
             return response()->json(['error' => 'Cobrança não encontrada'], 404);
         }
 
-        return response()->json($billing);
+        return new BillingResource($billing);
     }
 
-    public function pay(string $id, PayBillingRequest $request): JsonResponse
+    public function pay(string $id, PayBillingRequest $request): JsonResponse|PaymentResource
     {
         $billing = Billing::find($id);
 
@@ -179,6 +181,6 @@ class BillingController
         $billing->status = 'paid';
         $billing->save();
 
-        return response()->json($payment);
+        return new PaymentResource($payment);
     }
 }
