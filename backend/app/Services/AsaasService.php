@@ -56,8 +56,8 @@ class AsaasService
                 'error' => $response->json('errors.0.description'),
             ]);
             throw new HttpException(
-                $response->status(),
-                $response->json('errors.0.description') ?? 'Erro ao criar cliente na Asaas'
+                502,
+                'Não foi possível cadastrar o cliente para o pagamento.'
             );
         }
 
@@ -116,8 +116,8 @@ class AsaasService
                 'error' => $response->json('errors.0.description'),
             ]);
             throw new HttpException(
-                $response->status(),
-                $response->json('errors.0.description') ?? 'Erro ao criar cobrança na Asaas'
+                502,
+                'Não foi possível criar a cobrança.'
             );
         }
 
@@ -131,8 +131,8 @@ class AsaasService
                 'error' => $response->json('errors.0.description'),
             ]);
             throw new HttpException(
-                $response->status(),
-                $response->json('errors.0.description') ?? 'Erro ao processar pagamento na Asaas'
+                422,
+                'Não foi possível processar o pagamento.'
             );
         }
 
