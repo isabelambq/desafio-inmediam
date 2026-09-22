@@ -275,7 +275,11 @@ Alguns pontos foram identificados durante a análise, mas não foram implementad
 
 ### Autenticação e autorização
 
-As rotas da API não possuem um mecanismo de autenticação ou identificação do usuário. Como o projeto não fornece uma estrutura de autenticação, não foi implementado um sistema de login do zero.
+O projeto não possui mecanismo de autenticação de usuários. O endpoint `GET /api/billing`, criado para alimentar a listagem da tela inicial, permanece acessível sem autenticação. A resposta foi limitada aos dados necessários para a listagem, mas, em um cenário de produção, o endpoint deveria exigir autenticação e restringir as cobranças ao usuário/cliente autorizado. A implementação de autenticação completa não foi incluída por não fazer parte do escopo original do desafio.
+
+### Autorização no PayBillingRequest
+
+O  `FormRequest` não possui um método `authorize()` explícito. Como o projeto não possui mecanismo de autenticação/autorização implementado, a autorização padrão do Laravel é mantida. Em um cenário com usuários autenticados, essa regra deveria validar se o usuário possui permissão para realizar o pagamento da cobrança.
 
 ### Idempotência e concorrência
 
@@ -288,3 +292,6 @@ O formulário possui estado de processamento e mensagens de sucesso/erro. Não f
 ### Separação adicional de camadas
 
 O projeto não foi dividido em Services, Repositories ou Form Requests adicionais. As alterações foram mantidas na estrutura existente para evitar complexidade desnecessária para o escopo do desafio.
+
+### Validação Luhn do cartão
+a validação atual verifica formato e quantidade de dígitos, mas não aplica o algoritmo de Luhn. Em um cenário de produção, essa validação poderia ser adicionada no backend para rejeitar números de cartão estruturalmente inválidos antes de enviar a requisição à Asaas.
