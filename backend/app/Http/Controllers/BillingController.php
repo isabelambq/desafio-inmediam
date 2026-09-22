@@ -41,25 +41,16 @@ class BillingController
         return BillingResource::collection($data);
     }
 
-    public function show(string $id): JsonResponse|BillingResource
+    public function show(Billing $billing): JsonResponse|BillingResource
     {
-        // Retorna apenas os dados necessários para exibir a cobrança e o plano.
-        $billing = Billing::with('plan')->find($id);
-
-        if (!$billing) {
-            return response()->json(['error' => 'Cobrança não encontrada'], 404);
-        }
+        $billing->load('plan');
 
         return new BillingResource($billing);
     }
 
     public function pay(string $id, PayBillingRequest $request): JsonResponse|PaymentResource
     {
-        $billing = Billing::find($id);
-
-        if (!$billing) {
-            return response()->json(['error' => 'Cobrança não encontrada'], 404);
-        }
+        $billing = Billing::findOrFail($id);
 
         if ($billing->status === 'paid') {
             return response()->json([
