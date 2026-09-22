@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use App\Services\AsaasService;
 use App\Http\Resources\BillingResource;
 use App\Http\Resources\PaymentResource;
+use Illuminate\Support\Facades\DB;
 
 class BillingController
 {
@@ -168,18 +169,21 @@ class BillingController
             ]);
         }
 
-        // Registra o pagamento aprovado no banco de dados local.
-        $payment = Payment::create([
-            'billing_id' => $billing->id,
-            'credit_card_id' => $credit_card->id,
-            'amount_paid' => $billing->amount,
-            'status' => $response->status,
-            'paid_at' => now(),
-        ]);
+        // Registra o pagamento e atualiza a cobrança de forma atômica no banco local.
+        $payment = DB::transaction(function () use ($billing, $credit_card, $response) {
+            $payment = Payment::create([
+                'billing_id' => $billing->id,
+                'credit_card_id' => $credit_card->id,
+                'amount_paid' => $billing->amount,
+                'status' => $response->status,
+                'paid_at' => now(),
+            ]);
 
-        // Atualiza a cobrança local após a confirmação do pagamento.
-        $billing->status = 'paid';
-        $billing->save();
+            $billing->status = 'paid';
+            $billing->save();
+
+            return $payment;
+        });
 
         return new PaymentResource($payment);
     }
