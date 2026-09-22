@@ -30,7 +30,7 @@ class BillingPaymentService
 
         $customer = $billing->customer;
 
-        $asaasCustomerId = $this->getOrCreateAsaasCustomer($customer);
+        $asaasCustomerId = $this->asaasService->getOrCreateCustomer($customer);
 
         $response = $this->asaasService->createPayment([
             'customer' => $asaasCustomerId,
@@ -115,31 +115,5 @@ class BillingPaymentService
         });
 
         return $payment;
-    }
-
-    private function getOrCreateAsaasCustomer($customer)
-    {
-        if ($customer->asaas_customer_id) {
-            return $customer->asaas_customer_id;
-        }
-
-        $response = $this->asaasService->createCustomer([
-            'name' => $customer->name,
-            'email' => $customer->email,
-            'cpfCnpj' => $customer->document,
-            'notificationDisabled' => true,
-        ]);
-
-        if (!$response->successful()) {
-            throw new HttpException(
-                $response->status(),
-                $response->json('errors.0.description') ?? 'Erro ao criar cliente na Asaas'
-            );
-        }
-
-        $customer->asaas_customer_id = $response->json('id');
-        $customer->save();
-
-        return $customer->asaas_customer_id;
     }
 }

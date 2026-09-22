@@ -32,6 +32,33 @@ class AsaasService
         }
     }
 
+    // Reutiliza o cliente existente na Asaas ou cria um novo quando necessário.
+    public function getOrCreateCustomer($customer)
+    {
+        if ($customer->asaas_customer_id) {
+            return $customer->asaas_customer_id;
+        }
+
+        $response = $this->createCustomer([
+            'name' => $customer->name,
+            'email' => $customer->email,
+            'cpfCnpj' => $customer->document,
+            'notificationDisabled' => true,
+        ]);
+
+        if (!$response->successful()) {
+            throw new HttpException(
+                $response->status(),
+                $response->json('errors.0.description') ?? 'Erro ao criar cliente na Asaas'
+            );
+        }
+
+        $customer->asaas_customer_id = $response->json('id');
+        $customer->save();
+
+        return $customer->asaas_customer_id;
+    }
+
     // Cria uma cobrança na Asaas.
     public function createPayment(array $data)
     {
