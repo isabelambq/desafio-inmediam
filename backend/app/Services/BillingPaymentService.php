@@ -17,9 +17,8 @@ class BillingPaymentService
         $this->asaasService = $asaasService;
     }
 
-    public function pay(string $id, array $data)
+    public function pay(Billing $billing, array $data)
     {
-        $billing = Billing::findOrFail($id);
 
         if ($billing->status === 'paid') {
             throw new HttpException(

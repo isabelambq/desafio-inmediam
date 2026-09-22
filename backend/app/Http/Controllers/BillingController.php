@@ -44,11 +44,11 @@ class BillingController
         return new BillingResource($billing);
     }
 
-    public function pay(string $id, PayBillingRequest $request): JsonResponse|PaymentResource
+    public function pay(Billing $billing, PayBillingRequest $request): JsonResponse|PaymentResource
     {
         $data = $request->validated();
 
-        $payment = $this->billingPaymentService->pay($id, $data);
+        $payment = $this->billingPaymentService->pay($billing, $data);
 
         return new PaymentResource($payment);
     }
