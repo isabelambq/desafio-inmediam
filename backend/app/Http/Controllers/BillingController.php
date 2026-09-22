@@ -6,7 +6,7 @@ use App\Models\Billing;
 use App\Models\CreditCard;
 use App\Models\Payment;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use App\Http\Requests\PayBillingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Client\ConnectionException;
 use Carbon\Carbon;
@@ -41,7 +41,7 @@ class BillingController
         return response()->json($billing);
     }
 
-    public function pay(string $id, Request $request): JsonResponse
+    public function pay(string $id, PayBillingRequest $request): JsonResponse
     {
         $billing = Billing::find($id);
 
@@ -55,20 +55,10 @@ class BillingController
             ], 409);
         }
 
-        // Valida os dados do cartão antes de iniciar qualquer chamada à Asaas.
-        $request->validate([
-            'card_holder_name' => 'required|string|max:255',
-            'card_number' => 'required|string|digits_between:13,19',
-            'expiry_date' => [
-                'required',
-                'string',
-                'regex:/^(0[1-9]|1[0-2])\/\d{2}$/',
-            ],
-            'cvv' => 'required|string|digits_between:3,4',
-        ]);
+        $data = $request->validated();
 
         // Converte a validade do cartão para uma data e impede o uso de cartões expirados.
-        [$month, $year] = explode('/', $request->expiry_date);
+        [$month, $year] = explode('/', $data['expiry_date']);
         $year = '20' . $year;
         $expiryDate = Carbon::createFromDate($year, $month)->endOfMonth();
 
@@ -139,11 +129,11 @@ class BillingController
         try {
             $response = Http::withHeaders(['access_token' => $apiKey])->post("$baseUrl/payments/{$charge->id}/payWithCreditCard", [
                 'creditCard' => [
-                    'holderName' => $request->card_holder_name,
-                    'number' => $request->card_number,
-                    'expiryMonth' => explode('/', $request->expiry_date)[0],
-                    'expiryYear' => '20' . explode('/', $request->expiry_date)[1],
-                    'ccv' => $request->cvv,
+                    'holderName' => $data['card_holder_name'],
+                    'number' => $data['card_number'],
+                    'expiryMonth' => explode('/', $data['expiry_date'])[0],
+                    'expiryYear' => '20' . explode('/', $data['expiry_date'])[1],
+                    'ccv' => $data['cvv'],
                 ],
                 // Utiliza os dados de contato do cliente armazenados no banco para preencher as informações exigidas pela Asaas.
                 'creditCardHolderInfo' => [
@@ -185,7 +175,7 @@ class BillingController
         if (!$credit_card) {
             $credit_card = CreditCard::create([
                 'customer_id' => $billing->customer_id,
-                'card_holder_name' => $request->card_holder_name,
+                'card_holder_name' => $data['card_holder_name'],
                 'card_last_four' => $response->creditCard['creditCardNumber'],
                 'card_brand' => $response->creditCard['creditCardBrand'],
                 'card_token' => $response->creditCard['creditCardToken'],
