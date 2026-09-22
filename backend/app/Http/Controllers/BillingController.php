@@ -12,6 +12,7 @@ use App\Services\AsaasService;
 use App\Http\Resources\BillingResource;
 use App\Http\Resources\PaymentResource;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class BillingController
 {
@@ -20,20 +21,24 @@ class BillingController
     ) {
     }
 
-    public function index(): JsonResponse
+    public function index(): AnonymousResourceCollection
     {
-        // Retorna apenas os dados necessários para a listagem das cobranças.
-        return response()->json(
-            Billing::with([
-                'plan:id,name',
-                'customer:id,name',
-            ])->get([
+        // Retorna as cobranças paginadas com apenas os dados necessários para a listagem.
+        $data = Billing::query()
+            ->select([
                 'id',
                 'plan_id',
                 'customer_id',
+                'amount',
                 'status',
+                'due_date',
             ])
-        );
+            ->with([
+                'plan:id,name,description,price,active',
+            ])
+            ->paginate();
+
+        return BillingResource::collection($data);
     }
 
     public function show(string $id): JsonResponse|BillingResource
