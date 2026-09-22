@@ -31,46 +31,31 @@ class BillingPaymentService
 
         $asaasCustomerId = $this->asaasService->getOrCreateCustomer($customer);
 
-        $response = $this->asaasService->createPayment([
-            'customer' => $asaasCustomerId,
-            'billingType' => 'CREDIT_CARD',
-            'value' => $billing->amount,
-            'dueDate' => $billing->due_date,
-        ]);
-
-        if (!$response->successful()) {
-            throw new HttpException(
-                $response->status(),
-                $response->json('errors.0.description') ?? 'Erro ao criar cobrança na Asaas'
-            );
-        }
-
-        $chargeId = $response->json('id');
-
-        $response = $this->asaasService->payWithCreditCard($chargeId, [
-            'creditCard' => [
-                'holderName' => $data['card_holder_name'],
-                'number' => $data['card_number'],
-                'expiryMonth' => substr($data['expiry_date'], 0, 2),
-                'expiryYear' => '20' . substr($data['expiry_date'], 3, 2),
-                'ccv' => $data['cvv'],
+        $response = $this->asaasService->chargeCreditCard(
+            [
+                'customer' => $asaasCustomerId,
+                'billingType' => 'CREDIT_CARD',
+                'value' => $billing->amount,
+                'dueDate' => $billing->due_date,
             ],
-            'creditCardHolderInfo' => [
-                'name' => $customer->name,
-                'email' => $customer->email,
-                'cpfCnpj' => $customer->document,
-                'phone' => $customer->phone,
-                'postalCode' => $customer->postal_code,
-                'addressNumber' => $customer->address_number,
-            ],
-        ]);
-
-        if (!$response->successful()) {
-            throw new HttpException(
-                $response->status(),
-                $response->json('errors.0.description') ?? 'Erro ao processar pagamento na Asaas'
-            );
-        }
+            [
+                'creditCard' => [
+                    'holderName' => $data['card_holder_name'],
+                    'number' => $data['card_number'],
+                    'expiryMonth' => substr($data['expiry_date'], 0, 2),
+                    'expiryYear' => '20' . substr($data['expiry_date'], 3, 2),
+                    'ccv' => $data['cvv'],
+                ],
+                'creditCardHolderInfo' => [
+                    'name' => $customer->name,
+                    'email' => $customer->email,
+                    'cpfCnpj' => $customer->document,
+                    'phone' => $customer->phone,
+                    'postalCode' => $customer->postal_code,
+                    'addressNumber' => $customer->address_number,
+                ],
+            ]
+        );
 
         $responseData = $response->json();
 

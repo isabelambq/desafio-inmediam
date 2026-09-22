@@ -89,4 +89,30 @@ class AsaasService
             );
         }
     }
+
+    // Cria a cobrança e processa o pagamento com cartão na Asaas.
+    public function chargeCreditCard(array $paymentData, array $cardData)
+    {
+        $response = $this->createPayment($paymentData);
+
+        if (!$response->successful()) {
+            throw new HttpException(
+                $response->status(),
+                $response->json('errors.0.description') ?? 'Erro ao criar cobrança na Asaas'
+            );
+        }
+
+        $chargeId = $response->json('id');
+
+        $response = $this->payWithCreditCard($chargeId, $cardData);
+
+        if (!$response->successful()) {
+            throw new HttpException(
+                $response->status(),
+                $response->json('errors.0.description') ?? 'Erro ao processar pagamento na Asaas'
+            );
+        }
+
+        return $response;
+    }
 }
