@@ -9,6 +9,7 @@ class BillingService
 {
     public function paginate(): LengthAwarePaginator
     {
+        // Centraliza a consulta das cobranças utilizadas pela Home.
         return Billing::query()
             ->select([
                 'id',

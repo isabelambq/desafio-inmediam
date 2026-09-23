@@ -19,7 +19,7 @@ interface Billing {
 
 export function Home() {
   // Busca as cobranças da API para exibir os dados atualizados na tela inicial.
-  const { data } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['billings'],
     queryFn: async () => {
       const response = await axios
@@ -49,6 +49,17 @@ export function Home() {
           pagamento.
         </p>
 
+        {isLoading && (
+          <p className="mt-6 text-sm text-muted-foreground">
+            Carregando cobranças...
+          </p>
+        )}
+
+        {isError && (
+          <p className="mt-6 text-sm text-error-500">
+            Não foi possível carregar as cobranças.
+          </p>
+        )}
         <div className="mt-6 space-y-3">
           {/* Exibe cada cobrança retornada pela API com seu plano, cliente e status atual. */}
           {data?.map((billing: Billing) => (

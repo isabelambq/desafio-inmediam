@@ -13,7 +13,7 @@ import { PaymentForm } from './components/payment-form'
 export function Billing() {
   const { id } = useParams<{ id: string }>()
 
-  const { data } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['billing', id],
     queryFn: async () => {
       const response = await axios
@@ -37,7 +37,18 @@ export function Billing() {
         <h1 className="text-2xl font-bold text-foreground">
           Pagamento de assinatura
         </h1>
+        {isLoading && (
+          <p className="mt-6 text-sm text-muted-foreground">
+            Carregando cobrança...
+          </p>
+        )}
 
+        {isError && (
+          <p className="mt-6 text-sm text-error-500">
+            Não foi possível carregar a cobrança.
+          </p>
+        )}
+        {data && !isLoading && !isError && (
         <div className="mt-6 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Plano</span>
@@ -72,6 +83,7 @@ export function Billing() {
             </Badge>
           </div>
         </div>
+      )}
       </div>
 
       {/* O formulário recebe apenas o ID da cobrança; o valor é controlado pelo backend. */}

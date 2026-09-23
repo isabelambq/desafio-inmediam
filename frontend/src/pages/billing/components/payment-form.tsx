@@ -60,11 +60,19 @@ export function PaymentForm({ billingId }: PaymentFormProps) {
         }),
     onSuccess: () => {
       toast.success('Pagamento realizado com sucesso!')
-      // Atualiza os dados da cobrança após o pagamento para refletir o novo status na tela.
+      // Atualiza a cobrança atual e a lista da Home após o pagamento.
       queryClient.invalidateQueries({ queryKey: ['billing', billingId] })
+      queryClient.invalidateQueries({ queryKey: ['billings'] })
     },
     // Exibe uma mensagem de erro quando o pagamento não é processado.
-    onError: () => {
+    onError: (error) => {
+      if (axios.isAxiosError<{ message?: string }>(error)) {
+        toast.error(
+          error.response?.data?.message ?? 'Erro ao processar o pagamento!',
+        )
+        return
+      }
+
       toast.error('Erro ao processar o pagamento!')
     },
   })
