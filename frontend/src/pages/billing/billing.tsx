@@ -18,7 +18,7 @@ export function Billing() {
     queryFn: async () => {
       const response = await axios
         .create()
-        .get(`http://localhost:8000/api/billing/${id}`)
+        .get(`${import.meta.env.VITE_API_URL}/api/billing/${id}`)
       return response.data.data
     },
   })

@@ -27,8 +27,6 @@ interface PaymentFormProps {
 }
 
 export function PaymentForm({ billingId }: PaymentFormProps) {
-  const [cardNumber, setCardNumber] = useState<string>()
-  const [cvv, setCvv] = useState<string>()
   const [focused, setFocused] = useState<Focused>('')
 
   const {
@@ -53,7 +51,7 @@ export function PaymentForm({ billingId }: PaymentFormProps) {
     mutationFn: (data: PaymentFormData) =>
       axios
         .create()
-        .post(`http://localhost:8000/api/billing/${billingId}/pay`, {
+        .post(`${import.meta.env.VITE_API_URL}/api/billing/${billingId}/pay`, {
           // Remove a formatação antes de enviar o número do cartão ao backend.
           card_number: data.cardNumber.replace(/\D/g, ''),
           card_holder_name: data.holderName,
@@ -83,10 +81,10 @@ export function PaymentForm({ billingId }: PaymentFormProps) {
 
       <div className="mb-6">
         <Cards
-          number={cardNumber || watchedValues.cardNumber || ''}
+          number={watchedValues.cardNumber.match(/.{1,4}/g)?.join(' ') || ''}
           name={watchedValues.holderName}
           expiry={watchedValues.expiryDate}
-          cvc={cvv || watchedValues.cvv || ''}
+          cvc={watchedValues.cvv}
           focused={focused}
         />
       </div>
@@ -98,14 +96,12 @@ export function PaymentForm({ billingId }: PaymentFormProps) {
           <Input
             id="cardNumber"
             placeholder="0000 0000 0000 0000"
-            value={cardNumber}
+            value={watchedValues.cardNumber.match(/.{1,4}/g)?.join(' ') || ''}
             {...register('cardNumber')}
             onChange={(e) => {
-              const value = e.target.value.replace(/\D/g, '').slice(0, 19)
-              const formattedValue = value.match(/.{1,4}/g)?.join(' ') || ''
-              setCardNumber(formattedValue)
-              setValue('cardNumber', value, { shouldValidate: true })
-            }}
+            const value = e.target.value.replace(/\D/g, '').slice(0, 19)
+            setValue('cardNumber', value, { shouldValidate: true })
+          }}
             onFocus={() => setFocused('number')}
           />
           {errors.cardNumber && (
@@ -161,12 +157,11 @@ export function PaymentForm({ billingId }: PaymentFormProps) {
             <Input
               id="cvv"
               placeholder="123"
-              value={cvv}
+              value={watchedValues.cvv}
               {...register('cvv')}
               onChange={(e) => {
                 // Permite somente números e limita o CVV a quatro dígitos.
                 const value = e.target.value.replace(/\D/g, '').slice(0, 4)
-                setCvv(value)
                 setValue('cvv', value, { shouldValidate: true })
               }}
               onFocus={() => setFocused('cvc')}

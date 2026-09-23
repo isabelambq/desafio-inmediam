@@ -3,49 +3,36 @@
 namespace App\Http\Controllers;
 
 use App\Models\Billing;
-use Illuminate\Http\JsonResponse;
 use App\Http\Requests\PayBillingRequest;
 use App\Http\Resources\BillingResource;
 use App\Http\Resources\PaymentResource;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use App\Services\BillingPaymentService;
+use App\Services\BillingService;
 
 class BillingController
 {
     public function __construct(
-    private BillingPaymentService $billingPaymentService
+    private BillingPaymentService $billingPaymentService,
+    private BillingService $billingService
     ) {
     }
 
     public function index(): AnonymousResourceCollection
     {
-        // Retorna as cobranças paginadas com apenas os dados necessários para a listagem.
-        $data = Billing::query()
-            ->select([
-                'id',
-                'plan_id',
-                'customer_id',
-                'amount',
-                'status',
-                'due_date',
-            ])
-            ->with([
-                'plan:id,name,description,price,active',
-                'customer:id,name',
-            ])
-            ->paginate();
+        $data = $this->billingService->paginate();
 
         return BillingResource::collection($data);
     }
 
-    public function show(Billing $billing): JsonResponse|BillingResource
+    public function show(Billing $billing): BillingResource
     {
         $billing->load('plan', 'payments.creditCard');
 
         return new BillingResource($billing);
     }
 
-    public function pay(Billing $billing, PayBillingRequest $request): JsonResponse|PaymentResource
+    public function pay(Billing $billing, PayBillingRequest $request): PaymentResource
     {
         $data = $request->validated();
 

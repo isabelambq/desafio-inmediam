@@ -6,6 +6,17 @@ import axios from 'axios'
 import InMediamShield from '@/assets/inmediam-shield.svg'
 import MediamLogo from '@/assets/mediam.svg'
 
+interface Billing {
+  id: number
+  status: string
+  plan: {
+    name: string
+  }
+  customer: {
+    name: string
+  }
+}
+
 export function Home() {
   // Busca as cobranças da API para exibir os dados atualizados na tela inicial.
   const { data } = useQuery({
@@ -13,7 +24,7 @@ export function Home() {
     queryFn: async () => {
       const response = await axios
         .create()
-        .get('http://localhost:8000/api/billing')
+        .get(`${import.meta.env.VITE_API_URL}/api/billing`)
 
       return response.data.data
     },
@@ -40,7 +51,7 @@ export function Home() {
 
         <div className="mt-6 space-y-3">
           {/* Exibe cada cobrança retornada pela API com seu plano, cliente e status atual. */}
-          {data?.map((billing: any) => (
+          {data?.map((billing: Billing) => (
             <Link
               key={billing.id}
               to={`/billing/${billing.id}`}

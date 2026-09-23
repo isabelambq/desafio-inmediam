@@ -269,29 +269,74 @@ Foram realizados testes dos principais cenários do fluxo de pagamento:
 - Verificação da lista de cobranças na Home utilizando dados reais da API.
 - Atualização automática do status da cobrança após pagamento realizado com sucesso.
 
-## Pontos não implementados
+## Pontos de melhoria para produção
 
-Alguns pontos foram identificados durante a análise, mas não foram implementados por não fazerem parte do fluxo originalmente fornecido ou por aumentarem a complexidade além do necessário para o escopo do desafio.
+Alguns pontos foram identificados durante a análise e poderiam ser evoluídos em um ambiente de produção. Eles não foram implementados por aumentarem a complexidade além do necessário para o escopo do desafio.
 
 ### Autenticação e autorização
 
-O projeto não possui mecanismo de autenticação de usuários. O endpoint `GET /api/billing`, criado para alimentar a listagem da tela inicial, permanece acessível sem autenticação. A resposta foi limitada aos dados necessários para a listagem, mas, em um cenário de produção, o endpoint deveria exigir autenticação e restringir as cobranças ao usuário/cliente autorizado. A implementação de autenticação completa não foi incluída por não fazer parte do escopo original do desafio.
+O projeto não possui mecanismo de autenticação de usuários. O endpoint `GET /api/billing`, criado para alimentar a listagem da tela inicial, permanece acessível sem autenticação. A resposta foi limitada aos dados necessários para a listagem, mas, em um cenário de produção, o endpoint deveria exigir autenticação e restringir as cobranças ao usuário/cliente autorizado.
+
+A implementação de autenticação completa não foi incluída por não fazer parte do escopo original do desafio.
 
 ### Autorização no PayBillingRequest
 
-O  `FormRequest` não possui um método `authorize()` explícito. Como o projeto não possui mecanismo de autenticação/autorização implementado, a autorização padrão do Laravel é mantida. Em um cenário com usuários autenticados, essa regra deveria validar se o usuário possui permissão para realizar o pagamento da cobrança.
+O `FormRequest` não possui um método `authorize()` explícito. Como o projeto não possui mecanismo de autenticação/autorização implementado, a autorização padrão do Laravel é mantida.
+
+Em um cenário com usuários autenticados, essa regra deveria validar se o usuário possui permissão para realizar o pagamento da cobrança.
 
 ### Idempotência e concorrência
 
-Foi implementada uma proteção simples contra o pagamento de cobranças já pagas e contra duplicação de cartões pelo token. Não foi implementado um mecanismo completo de idempotência ou controle de concorrência para múltiplas requisições simultâneas.
+A implementação possui proteção contra o pagamento de cobranças que já estão com status `paid` e contra duplicação de cartões pelo token.
+
+Em um ambiente de produção, seria importante implementar um mecanismo completo de idempotência e controle de concorrência para impedir que múltiplas requisições simultâneas processem a mesma cobrança.
+
+### Concorrência na criação do cliente Asaas
+
+O método responsável por reutilizar ou criar o cliente na Asaas pode sofrer uma condição de corrida em requisições simultâneas. Duas requisições podem verificar ao mesmo tempo que o cliente ainda não possui `asaas_customer_id` e ambas tentarem criar um novo cliente na Asaas.
+
+Em um ambiente de produção, seria necessário implementar uma estratégia de sincronização ou idempotência para garantir que apenas um cliente externo seja criado e associado ao cliente local.
+
+### Persistência do identificador da cobrança na Asaas
+
+O identificador da cobrança criada na Asaas não é persistido localmente antes da confirmação do pagamento.
+
+Em um cenário de produção, seria interessante armazenar o `chargeId` da Asaas para permitir o rastreamento da operação e evitar a criação de uma nova cobrança caso ocorra uma falha após a criação da cobrança externa.
+
+### Tratamento de estados intermediários da Asaas
+
+Atualmente, o pagamento local só é concluído quando a Asaas retorna o status `CONFIRMED`.
+
+Em um cenário de produção, estados intermediários como `AUTHORIZED` ou `PENDING` poderiam ser tratados separadamente, mantendo a cobrança em processamento até que o status definitivo fosse confirmado. Esse acompanhamento poderia ser realizado por consulta posterior à Asaas ou por webhooks.
+
+### Timeout e retry nas integrações externas
+
+As chamadas à API da Asaas poderiam possuir configurações explícitas de timeout e uma estratégia de retry para falhas de comunicação.
+
+Para operações de pagamento, o retry deve ser utilizado com cuidado e associado a um mecanismo de idempotência, evitando que uma nova tentativa resulte em uma cobrança duplicada.
+
+### Validação Luhn do cartão
+
+A validação atual verifica formato e quantidade de dígitos, mas não aplica o algoritmo de Luhn.
+
+Em um cenário de produção, essa validação poderia ser adicionada no backend para rejeitar números de cartão estruturalmente inválidos antes de enviar a requisição à Asaas.
 
 ### Estados de carregamento e erro das consultas
 
-O formulário possui estado de processamento e mensagens de sucesso/erro. Não foram implementados estados específicos de carregamento e erro para as consultas da Home e da tela de cobrança.
+O formulário possui estado de processamento e mensagens de sucesso/erro.
+
+Não foram implementados estados específicos de carregamento e erro para as consultas da Home e da tela de cobrança. Em um cenário de produção, essas situações poderiam receber tratamentos específicos na interface.
 
 ### Separação adicional de camadas
 
-O projeto não foi dividido em Services, Repositories ou Form Requests adicionais. As alterações foram mantidas na estrutura existente para evitar complexidade desnecessária para o escopo do desafio.
+O projeto já utiliza Services e Form Requests para separar responsabilidades.
 
-### Validação Luhn do cartão
-a validação atual verifica formato e quantidade de dígitos, mas não aplica o algoritmo de Luhn. Em um cenário de produção, essa validação poderia ser adicionada no backend para rejeitar números de cartão estruturalmente inválidos antes de enviar a requisição à Asaas.
+Como evolução arquitetural, poderiam ser adicionadas outras camadas, como Repositories, caso a complexidade do sistema justificasse essa abstração. Para o escopo do desafio, essa separação adicional não foi considerada necessária.
+
+### Separação entre regras de negócio e camada HTTP
+
+Os Services utilizam `HttpException` para representar erros durante o processamento.
+
+Em uma arquitetura mais desacoplada, os Services poderiam lançar exceções específicas de domínio, deixando a camada HTTP responsável por transformar essas exceções em códigos e respostas HTTP.
+
+Essa separação não foi implementada por não ser necessária para o escopo do desafio.
