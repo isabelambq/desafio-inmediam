@@ -4,254 +4,391 @@
 
 ### 1. Validação dos dados do cartão
 
-**Problema:**  
+**Problema:**
 O endpoint de pagamento não possuía validações suficientes para os dados enviados pelo cliente.
 
-**Correção:**  
+**Correção:**
 Foi adicionada validação para nome do titular, número do cartão, validade e CVV antes das chamadas à API da Asaas.
 
-**Motivo:**  
+**Motivo:**
 Evitar o processamento de dados inválidos e impedir chamadas desnecessárias à API externa.
 
 ### 2. Validação da validade do cartão
 
-**Problema:**  
+**Problema:**
 Não havia uma verificação para impedir o uso de cartões expirados.
 
-**Correção:**  
+**Correção:**
 A validade informada é convertida para uma data e o pagamento é interrompido quando o cartão está expirado.
 
-**Motivo:**  
+**Motivo:**
 Evitar o envio de uma tentativa de pagamento com um cartão que já está vencido.
 
 ### 3. Valor da cobrança controlado pelo backend
 
-**Problema:**  
+**Problema:**
 O valor da cobrança era recebido pelo frontend e utilizado na criação da cobrança na Asaas.
 
-**Correção:**  
+**Correção:**
 O valor utilizado na integração passou a ser o valor armazenado na cobrança no banco de dados (`$billing->amount`).
 
-**Motivo:**  
+Além disso, o `amount` foi removido do formulário e da requisição enviada pelo frontend.
+
+**Motivo:**
 O frontend não deve ser considerado uma fonte confiável para definir o valor de uma cobrança.
 
 ### 4. Centralização das configurações da Asaas
 
-**Problema:**  
+**Problema:**
 A API Key e a URL da Asaas estavam sendo obtidas diretamente no Controller, com a URL da API definida no código.
 
-**Correção:**  
+**Correção:**
 As configurações foram centralizadas em `config/services.php` e os valores são definidos pelo `.env`.
 
-**Motivo:**  
+As variáveis foram adicionadas também ao `.env.example`:
+
+- `ASAAS_API_KEY`
+- `ASAAS_BASE_URL`
+
+**Motivo:**
 Separar configuração de código e facilitar a alteração entre ambientes, como Sandbox e Produção.
 
 ### 5. Identificação do cliente na Asaas
 
-**Problema:**  
+**Problema:**
 O modelo de clientes não possuía um campo para armazenar o identificador do cliente criado na Asaas.
 
-**Correção:**  
-Foi criada uma nova migration para adicionar o campo `asaas_customer_id` à tabela `customers`. O sistema utiliza esse identificador para reutilizar o cliente já cadastrado na Asaas e somente criar um novo quando necessário.
+**Correção:**
+Foi criada uma migration para adicionar o campo `asaas_customer_id` à tabela `customers`.
 
-**Motivo:**  
-Evitar a criação de clientes duplicados na Asaas e manter a relação entre o cliente local e o cliente da plataforma de pagamentos.
+O sistema utiliza esse identificador para reutilizar o cliente já cadastrado na Asaas e somente criar um novo quando necessário.
+
+**Motivo:**
+Evitar a criação desnecessária de clientes duplicados na Asaas e manter a relação entre o cliente local e o cliente da plataforma de pagamentos.
 
 ### 6. Dados adicionais do cliente
 
-**Problema:**  
+**Problema:**
 Os dados necessários para `creditCardHolderInfo` não existiam na estrutura original de clientes.
 
-**Correção:**  
+**Correção:**
 Foram adicionados os campos `phone`, `postal_code` e `address_number` por meio de migration.
 
-**Motivo:**  
+**Motivo:**
 Permitir que a integração utilize os dados de contato do cliente armazenados no banco, evitando valores fixos no código.
 
 ### 7. Tratamento de erros da integração com a Asaas
 
-**Problema:**  
-Respostas diferentes da API da Asaas eram tratadas indiscriminadamente como `502`.
+**Problema:**
+Respostas diferentes da API da Asaas eram tratadas indiscriminadamente e detalhes da resposta externa poderiam ser expostos ao cliente.
 
-**Correção:**  
-As respostas HTTP da Asaas passaram a utilizar o status retornado pela API. Falhas de conexão continuam sendo tratadas como `502`.
+**Correção:**
+As respostas da Asaas passaram a ser verificadas antes da continuidade do fluxo.
 
-**Motivo:**  
-Diferenciar uma falha de comunicação de um erro retornado pela própria API.
+Os detalhes retornados pela Asaas são registrados nos logs, enquanto o cliente recebe mensagens controladas pela aplicação.
+
+Falhas de conexão com a API externa continuam sendo tratadas como `502`.
+
+**Motivo:**
+Diferenciar falhas de comunicação de erros retornados pela API e evitar a exposição de informações internas da integração.
 
 ### 8. Confirmação do pagamento antes da atualização local
 
-**Problema:**  
+**Problema:**
 O pagamento precisava ser confirmado pela Asaas antes de ser registrado como pago no sistema local.
 
-**Correção:**  
+**Correção:**
 A cobrança local só é marcada como `paid` quando a resposta da Asaas possui status `CONFIRMED`.
 
-**Motivo:**  
+**Motivo:**
 Evitar que uma cobrança seja marcada como paga localmente sem confirmação do pagamento externo.
 
 ### 9. Reutilização de cartão pelo token
 
-**Problema:**  
+**Problema:**
 Um novo registro de cartão era criado a cada pagamento, sem verificar se o cartão já estava cadastrado para aquele cliente.
 
-**Correção:**  
-O sistema verifica `customer_id` e `card_token` antes de criar um novo registro.
+**Correção:**
+O sistema utiliza `customer_id` e `card_token` para localizar um cartão já cadastrado antes de criar um novo registro.
 
-**Motivo:**  
+**Motivo:**
 Evitar registros duplicados do mesmo cartão para o mesmo cliente.
 
-### 10. Redução de dados retornados pela consulta de cobrança
+### 10. Correção dos dados do cartão retornados pela Asaas
 
-**Problema:**  
-O endpoint de consulta carregava também os pagamentos e os dados relacionados ao cartão.
+**Problema:**
+Os dados utilizados para armazenar os últimos quatro dígitos e a bandeira do cartão precisavam ser compatíveis com a estrutura retornada pela Asaas.
 
-**Correção:**  
-O endpoint passou a retornar somente a cobrança e o plano necessário para a tela.
+**Correção:**
+O sistema passou a utilizar os dados `creditCardNumber` e `creditCardBrand` retornados pela API da Asaas.
 
-**Motivo:**  
-Evitar a exposição de dados que não são necessários para essa operação.
+**Motivo:**
+Garantir que os dados persistidos no cartão local correspondam à resposta da integração.
 
 ### 11. Endpoint para listagem de cobranças
 
-**Problema:**  
-A tela inicial utilizava dados fixos das cobranças.
+**Problema:**
+A tela inicial utilizava dados fixos de clientes, planos e status.
 
-**Correção:**  
+**Correção:**
 Foi criado o endpoint `GET /api/billing` para retornar as cobranças necessárias para a listagem.
 
-**Motivo:**  
-Permitir que a interface utilize os dados reais do backend.
+A consulta utiliza paginação e carrega somente os relacionamentos necessários para a Home.
+
+**Motivo:**
+Permitir que a interface utilize dados reais do backend e evitar informações fixas no frontend.
+
+### 12. Limitação de tentativas no endpoint de pagamento
+
+**Problema:**
+O endpoint de pagamento não possuía limitação de requisições.
+
+**Correção:**
+Foi adicionado o middleware `throttle:5,1` ao endpoint:
+
+`POST /api/billing/{billing}/pay`
+
+**Motivo:**
+Reduzir tentativas excessivas de pagamento e diminuir o risco de abuso do endpoint.
+
+### 13. Separação da lógica de pagamento em Services
+
+**Problema:**
+O Controller concentrava responsabilidades relacionadas ao processamento do pagamento e à integração com a Asaas.
+
+**Correção:**
+A lógica foi separada em Services:
+
+- `AsaasService`: responsável pela comunicação com a API da Asaas.
+- `BillingPaymentService`: responsável pelo fluxo de pagamento da cobrança.
+
+**Motivo:**
+Reduzir a responsabilidade do Controller e facilitar a manutenção e os testes da lógica de negócio.
+
+### 14. Separação da consulta de cobranças
+
+**Problema:**
+A consulta utilizada pela listagem de cobranças estava diretamente no Controller.
+
+**Correção:**
+A consulta da Home foi extraída para o `BillingService`.
+
+**Motivo:**
+Separar a responsabilidade de consulta da camada HTTP e manter o Controller mais enxuto.
+
+### 15. Uso de transação no registro do pagamento
+
+**Problema:**
+O registro do pagamento e a atualização do status da cobrança envolvem duas operações no banco de dados.
+
+**Correção:**
+Essas operações passaram a ser realizadas dentro de uma `DB::transaction()`.
+
+**Motivo:**
+Garantir que o pagamento e a atualização da cobrança sejam persistidos de forma atômica no banco local.
+
+### 16. Configuração do ambiente de execução
+
+**Problema:**
+O modo de debug poderia expor informações detalhadas da aplicação em respostas de erro.
+
+**Correção:**
+O `APP_DEBUG` foi configurado como `false`.
+
+**Motivo:**
+Evitar a exposição de informações internas da aplicação em ambiente de execução.
+
+### 17. Atualização da versão do PostgreSQL na documentação
+
+**Problema:**
+A documentação indicava PostgreSQL 16, enquanto o `docker-compose.yml` estava configurado para PostgreSQL 17.
+
+**Correção:**
+O README foi atualizado para refletir a versão PostgreSQL 17 utilizada pelo ambiente Docker.
+
+**Motivo:**
+Manter a documentação consistente com a configuração real do projeto.
+
+---
 
 ## Frontend
 
 ### 1. Mensagem de erro no pagamento
 
-**Problema:**  
-O callback `onError` do formulário exibia uma mensagem de sucesso mesmo quando o pagamento falhava.
+**Problema:**
+O callback `onError` do formulário exibia uma mensagem genérica mesmo quando o pagamento falhava.
 
-**Correção:**  
-A mensagem foi alterada para informar corretamente que ocorreu um erro no processamento do pagamento.
+**Correção:**
+O tratamento de erro passou a utilizar a mensagem retornada pela API quando disponível.
 
-**Motivo:**  
-Garantir que o usuário receba um feedback coerente com o resultado da operação.
+**Motivo:**
+Fornecer um feedback mais preciso ao usuário sem expor detalhes internos da aplicação.
 
 ### 2. Validação dos dados do formulário
 
-**Problema:**  
+**Problema:**
 Os campos do formulário possuíam pouca validação no frontend.
 
-**Correção:**  
+**Correção:**
 Foram adicionadas validações utilizando Zod para número do cartão, nome do titular, validade e CVV.
 
-**Motivo:**  
+**Motivo:**
 Fornecer feedback imediato ao usuário e evitar o envio de dados claramente inválidos ao backend.
 
 ### 3. Correção da formatação do valor da cobrança
 
-**Problema:**  
+**Problema:**
 O valor da cobrança recebido pela API era utilizado diretamente na formatação monetária, resultando em `R$ NaN` na interface.
 
-**Correção:**  
+**Correção:**
 O valor recebido da API passou a ser convertido para número antes da formatação.
 
-**Motivo:**  
+**Motivo:**
 Garantir que o valor da cobrança seja exibido corretamente na interface.
 
 ### 4. Máscara do número do cartão
 
-**Problema:**  
+**Problema:**
 O número do cartão era enviado ao backend com espaços quando informado com formatação, causando falha na validação.
 
-**Correção:**  
+**Correção:**
 Foi adicionada uma máscara visual para o número do cartão e os caracteres não numéricos são removidos antes do envio à API.
 
-**Motivo:**  
+**Motivo:**
 Permitir uma experiência de preenchimento mais amigável sem alterar o formato esperado pelo backend.
 
 ### 5. Máscara da validade do cartão
 
-**Problema:**  
+**Problema:**
 O usuário poderia informar a validade sem o formato esperado.
 
-**Correção:**  
+**Correção:**
 Foi adicionada uma máscara que formata automaticamente a entrada para `MM/AA`.
 
-**Motivo:**  
+**Motivo:**
 Padronizar a entrada do usuário e facilitar o preenchimento do campo.
 
 ### 6. Máscara do CVV
 
-**Problema:**  
+**Problema:**
 O campo permitia caracteres que não faziam parte do CVV.
 
-**Correção:**  
+**Correção:**
 O campo passou a aceitar somente números e foi limitado a quatro dígitos.
 
-**Motivo:**  
+**Motivo:**
 Garantir uma entrada mais adequada ao formato esperado pelo backend.
 
 ### 7. Remoção da formatação do cartão antes do envio
 
-**Problema:**  
+**Problema:**
 O cartão formatado com espaços estava sendo enviado ao backend, causando falha na validação.
 
-**Correção:**  
+**Correção:**
 Os caracteres não numéricos são removidos antes do envio para a API.
 
-**Motivo:**  
+**Motivo:**
 Permitir que o usuário utilize a máscara visual sem alterar o formato esperado pelo backend.
 
-### 8. Valor da cobrança não enviado pelo frontend
+### 8. Lista de cobranças na tela inicial
 
-**Problema:**  
-O componente de pagamento recebia e enviava o valor da cobrança pelo frontend, embora o valor confiável estivesse no backend.
-
-**Correção:**  
-O `amount` foi removido das propriedades e da requisição do formulário.
-
-**Motivo:**  
-Evitar que a interface seja responsável por fornecer um dado que deve ser controlado pelo backend.
- 
-### 9. Lista de cobranças na tela inicial
-
-**Problema:**  
+**Problema:**
 A tela inicial utilizava dados fixos de clientes, planos e status.
 
-**Correção:**  
+**Correção:**
 A Home passou a consultar `GET /api/billing` e montar a lista dinamicamente com os dados retornados pela API.
 
-**Motivo:**  
-Garantir que a tela inicial apresente o estado atual das cobranças e evitar inconsistências entre a Home e a tela de detalhes.
+**Motivo:**
+Garantir que a tela inicial apresente o estado atual das cobranças.
 
-### 10. Atualização da cobrança após o pagamento
+### 9. Configuração da URL da API por ambiente
 
-**Problema:**  
-Após um pagamento bem-sucedido, a tela permanecia com os dados anteriores até que o usuário navegasse para outra página ou atualizasse a página.
+**Problema:**
+A URL do backend estava definida diretamente em diferentes arquivos do frontend.
 
-**Correção:**  
-Após o pagamento ser concluído com sucesso, a consulta da cobrança é invalidada para que os dados sejam buscados novamente e o status seja atualizado na interface.
+**Correção:**
+A URL passou a ser obtida por meio da variável `VITE_API_URL`.
 
-**Motivo:**  
-Garantir que a interface reflita imediatamente o estado atualizado da cobrança após o pagamento.
+O arquivo `.env` do frontend também foi incluído no `.gitignore`.
 
-### 11. Remoção de configuração depreciada do TypeScript
+**Motivo:**
+Evitar valores fixos no código, facilitar a execução em diferentes ambientes e impedir o versionamento de configurações locais.
 
-**Problema:**  
+### 10. Tipagem da listagem de cobranças
+
+**Problema:**
+A listagem de cobranças utilizava `any` para os dados recebidos da API.
+
+**Correção:**
+Foi adicionada uma tipagem específica para os dados utilizados pela Home.
+
+**Motivo:**
+Melhorar a segurança de tipos e facilitar a manutenção do código.
+
+### 11. Centralização do estado dos campos do formulário
+
+**Problema:**
+O formulário utilizava estados locais separados em conjunto com o estado do React Hook Form.
+
+**Correção:**
+Os campos de número do cartão, validade e CVV passaram a utilizar o estado do React Hook Form.
+
+**Motivo:**
+Evitar duplicação de estado e manter uma única fonte de verdade para os dados do formulário.
+
+### 12. Estados de carregamento e erro
+
+**Problema:**
+As consultas da Home e da tela de cobrança não apresentavam feedback específico durante carregamento ou em caso de erro.
+
+**Correção:**
+Foram adicionadas mensagens específicas para os estados `isLoading` e `isError`.
+
+**Motivo:**
+Fornecer feedback adequado ao usuário durante as operações de consulta.
+
+### 13. Atualização da cobrança após o pagamento
+
+**Problema:**
+Após um pagamento bem-sucedido, a tela permanecia com os dados anteriores até uma nova consulta.
+
+**Correção:**
+Após o pagamento, a query da cobrança atual e a query da lista de cobranças são invalidadas.
+
+**Motivo:**
+Garantir que tanto a tela atual quanto a Home reflitam o novo status da cobrança.
+
+### 14. Remoção de configuração depreciada do TypeScript
+
+**Problema:**
 O `tsconfig.json` utilizava a opção `baseUrl`, que estava marcada como depreciada pelo TypeScript.
 
-**Correção:**  
+**Correção:**
 A opção `baseUrl` foi removida, mantendo a configuração de `paths` utilizada pelos imports do projeto.
 
-**Motivo:**  
+**Motivo:**
 Eliminar o warning de depreciação e manter a configuração do TypeScript compatível com as versões atuais.
+
+---
 
 ## Testes realizados
 
 ### Testes automatizados
 
-- `php artisan test` executado com sucesso.
-- `npm.cmd run build` executado com sucesso após as alterações no frontend.
+A suíte automatizada foi executada com sucesso:
+
+- `php artisan test` — suíte completa executada com sucesso.
+- `php artisan test --filter=BillingTest` — 4 testes e 5 assertions executados com sucesso.
+- `npm.cmd run build` — build de produção do frontend executado com sucesso.
+
+O `BillingTest` cobre os seguintes cenários:
+
+- Cobrança inexistente retorna `404`.
+- Tentativa de pagamento de cobrança já paga retorna `409`.
+- Cartão expirado é rejeitado com `422`.
+- O valor utilizado no pagamento corresponde ao valor da cobrança armazenado no backend, independentemente do `amount` enviado pelo cliente.
+
+O teste de valor da cobrança utiliza `Http::fake()` para simular a comunicação com a Asaas sem realizar uma chamada externa real.
 
 ### Testes manuais
 
@@ -268,75 +405,6 @@ Foram realizados testes dos principais cenários do fluxo de pagamento:
 - Máscaras de número do cartão, validade e CVV.
 - Verificação da lista de cobranças na Home utilizando dados reais da API.
 - Atualização automática do status da cobrança após pagamento realizado com sucesso.
-
-## Pontos de melhoria para produção
-
-Alguns pontos foram identificados durante a análise e poderiam ser evoluídos em um ambiente de produção. Eles não foram implementados por aumentarem a complexidade além do necessário para o escopo do desafio.
-
-### Autenticação e autorização
-
-O projeto não possui mecanismo de autenticação de usuários. O endpoint `GET /api/billing`, criado para alimentar a listagem da tela inicial, permanece acessível sem autenticação. A resposta foi limitada aos dados necessários para a listagem, mas, em um cenário de produção, o endpoint deveria exigir autenticação e restringir as cobranças ao usuário/cliente autorizado.
-
-A implementação de autenticação completa não foi incluída por não fazer parte do escopo original do desafio.
-
-### Autorização no PayBillingRequest
-
-O `FormRequest` não possui um método `authorize()` explícito. Como o projeto não possui mecanismo de autenticação/autorização implementado, a autorização padrão do Laravel é mantida.
-
-Em um cenário com usuários autenticados, essa regra deveria validar se o usuário possui permissão para realizar o pagamento da cobrança.
-
-### Idempotência e concorrência
-
-A implementação possui proteção contra o pagamento de cobranças que já estão com status `paid` e contra duplicação de cartões pelo token.
-
-Em um ambiente de produção, seria importante implementar um mecanismo completo de idempotência e controle de concorrência para impedir que múltiplas requisições simultâneas processem a mesma cobrança.
-
-### Concorrência na criação do cliente Asaas
-
-O método responsável por reutilizar ou criar o cliente na Asaas pode sofrer uma condição de corrida em requisições simultâneas. Duas requisições podem verificar ao mesmo tempo que o cliente ainda não possui `asaas_customer_id` e ambas tentarem criar um novo cliente na Asaas.
-
-Em um ambiente de produção, seria necessário implementar uma estratégia de sincronização ou idempotência para garantir que apenas um cliente externo seja criado e associado ao cliente local.
-
-### Persistência do identificador da cobrança na Asaas
-
-O identificador da cobrança criada na Asaas não é persistido localmente antes da confirmação do pagamento.
-
-Em um cenário de produção, seria interessante armazenar o `chargeId` da Asaas para permitir o rastreamento da operação e evitar a criação de uma nova cobrança caso ocorra uma falha após a criação da cobrança externa.
-
-### Tratamento de estados intermediários da Asaas
-
-Atualmente, o pagamento local só é concluído quando a Asaas retorna o status `CONFIRMED`.
-
-Em um cenário de produção, estados intermediários como `AUTHORIZED` ou `PENDING` poderiam ser tratados separadamente, mantendo a cobrança em processamento até que o status definitivo fosse confirmado. Esse acompanhamento poderia ser realizado por consulta posterior à Asaas ou por webhooks.
-
-### Timeout e retry nas integrações externas
-
-As chamadas à API da Asaas poderiam possuir configurações explícitas de timeout e uma estratégia de retry para falhas de comunicação.
-
-Para operações de pagamento, o retry deve ser utilizado com cuidado e associado a um mecanismo de idempotência, evitando que uma nova tentativa resulte em uma cobrança duplicada.
-
-### Validação Luhn do cartão
-
-A validação atual verifica formato e quantidade de dígitos, mas não aplica o algoritmo de Luhn.
-
-Em um cenário de produção, essa validação poderia ser adicionada no backend para rejeitar números de cartão estruturalmente inválidos antes de enviar a requisição à Asaas.
-
-### Estados de carregamento e erro das consultas
-
-O formulário possui estado de processamento e mensagens de sucesso/erro.
-
-Não foram implementados estados específicos de carregamento e erro para as consultas da Home e da tela de cobrança. Em um cenário de produção, essas situações poderiam receber tratamentos específicos na interface.
-
-### Separação adicional de camadas
-
-O projeto já utiliza Services e Form Requests para separar responsabilidades.
-
-Como evolução arquitetural, poderiam ser adicionadas outras camadas, como Repositories, caso a complexidade do sistema justificasse essa abstração. Para o escopo do desafio, essa separação adicional não foi considerada necessária.
-
-### Separação entre regras de negócio e camada HTTP
-
-Os Services utilizam `HttpException` para representar erros durante o processamento.
-
-Em uma arquitetura mais desacoplada, os Services poderiam lançar exceções específicas de domínio, deixando a camada HTTP responsável por transformar essas exceções em códigos e respostas HTTP.
-
-Essa separação não foi implementada por não ser necessária para o escopo do desafio.
+- Exibição da mensagem de erro retornada pelo backend no frontend.
+- Tratamento de cobrança inexistente.
+- Verificação dos estados de carregamento e erro das consultas.
