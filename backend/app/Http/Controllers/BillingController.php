@@ -13,8 +13,8 @@ use App\Services\BillingService;
 class BillingController
 {
     public function __construct(
-    private BillingPaymentService $billingPaymentService,
-    private BillingService $billingService
+        private BillingPaymentService $billingPaymentService,
+        private BillingService $billingService
     ) {
     }
 
@@ -27,7 +27,7 @@ class BillingController
 
     public function show(Billing $billing): BillingResource
     {
-        $billing->load('plan', 'payments.creditCard');
+        $billing->load('plan', 'customer', 'payments.creditCard');
 
         return new BillingResource($billing);
     }

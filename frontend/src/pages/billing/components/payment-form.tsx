@@ -107,9 +107,9 @@ export function PaymentForm({ billingId }: PaymentFormProps) {
             value={watchedValues.cardNumber.match(/.{1,4}/g)?.join(' ') || ''}
             {...register('cardNumber')}
             onChange={(e) => {
-            const value = e.target.value.replace(/\D/g, '').slice(0, 19)
-            setValue('cardNumber', value, { shouldValidate: true })
-          }}
+              const value = e.target.value.replace(/\D/g, '').slice(0, 19)
+              setValue('cardNumber', value, { shouldValidate: true })
+            }}
             onFocus={() => setFocused('number')}
           />
           {errors.cardNumber && (
