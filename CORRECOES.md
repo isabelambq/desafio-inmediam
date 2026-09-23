@@ -408,3 +408,137 @@ Foram realizados testes dos principais cenários do fluxo de pagamento:
 - Exibição da mensagem de erro retornada pelo backend no frontend.
 - Tratamento de cobrança inexistente.
 - Verificação dos estados de carregamento e erro das consultas.
+
+---
+
+# Melhorias previstas para produção
+
+Durante o code review foram identificados alguns pontos que seriam tratados em uma versão de produção da aplicação.
+
+Essas alterações não foram implementadas neste desafio para manter o escopo controlado, mas ficam registradas como próximos passos técnicos.
+
+## 1. Autenticação e autorização
+
+Implementar autenticação e autorização na API, garantindo que somente usuários autenticados e autorizados possam consultar ou realizar operações sobre as cobranças.
+
+Também seria implementada uma regra de autorização específica no `PayBillingRequest`, garantindo que o usuário tenha permissão para realizar o pagamento da cobrança solicitada.
+
+---
+
+## 2. Validação Luhn
+
+Adicionar a validação do algoritmo de Luhn para verificar a consistência do número do cartão antes de enviá-lo para a Asaas.
+
+A validação atual verifica o formato e a quantidade de dígitos, mas não realiza essa validação matemática.
+
+---
+
+## 3. Idempotência e concorrência no pagamento
+
+Implementar um mecanismo de idempotência e controle de concorrência para impedir que duas requisições simultâneas processem a mesma cobrança.
+
+O objetivo é garantir que uma cobrança não seja paga ou registrada duas vezes em situações de requisições concorrentes.
+
+---
+
+## 4. Persistência do ID da cobrança na Asaas
+
+Persistir no banco de dados o identificador da cobrança criada na Asaas.
+
+Isso permitiria rastrear a cobrança externa, facilitar conciliação e possibilitar tratamentos de falhas ou reprocessamentos.
+
+---
+
+## 5. Tratamento de estados intermediários da Asaas
+
+Implementar o tratamento dos diferentes estados possíveis de um pagamento na Asaas.
+
+Atualmente o fluxo considera `CONFIRMED` como condição para concluir o pagamento localmente.
+
+Em produção, estados intermediários, como `AUTHORIZED` ou outros estados pendentes de confirmação, deverão ser tratados adequadamente.
+
+---
+
+## 6. Webhooks da Asaas
+
+Implementar webhooks para receber atualizações de status dos pagamentos diretamente da Asaas.
+
+Isso permitirá que a aplicação atualize o status da cobrança local quando houver alterações assíncronas no pagamento.
+
+Também deverá ser implementada a validação das notificações recebidas para garantir a autenticidade das informações.
+
+---
+
+## 7. Timeout e retry nas requisições externas
+
+Configurar timeout explícito nas requisições para a Asaas e implementar uma estratégia controlada de retry para falhas transitórias.
+
+Os retries deverão ser utilizados com cuidado para evitar a criação duplicada de cobranças.
+
+---
+
+## 8. Concorrência na criação do cliente Asaas
+
+Tratar possíveis condições de corrida durante a criação de clientes na Asaas.
+
+Duas requisições simultâneas podem tentar criar o mesmo cliente antes que o `asaas_customer_id` seja persistido localmente.
+
+Em produção, essa situação deverá ser tratada para evitar clientes duplicados ou conflitos na persistência do identificador.
+
+---
+
+## 9. Desacoplamento das exceções HTTP dos Services
+
+Remover o acoplamento direto dos Services com exceções HTTP, como `HttpException`.
+
+Uma evolução possível seria utilizar exceções específicas do domínio ou da integração e deixar uma camada superior responsável por convertê-las em respostas HTTP.
+
+Isso mantém a camada de negócio independente do protocolo HTTP.
+
+---
+
+## 10. Refinamento dos tipos de retorno do Controller
+
+Refinar os tipos de retorno dos métodos do `BillingController`, tornando-os mais precisos e consistentes com todas as respostas possíveis.
+
+Também poderia ser adotada uma estratégia mais padronizada para o tratamento das exceções e respostas HTTP.
+
+---
+
+## 11. Data real de confirmação do pagamento
+
+Ajustar o preenchimento do campo `paid_at`.
+
+Atualmente é utilizado:
+
+`paid_at' => now()`
+
+Em produção, quando disponível, deverá ser considerada a data/hora efetiva de confirmação informada pela Asaas, permitindo maior precisão no histórico do pagamento
+
+## 12. Evolução das camadas de arquitetura
+
+Conforme a aplicação cresça, a arquitetura poderá evoluir para separar ainda mais as responsabilidades de:
+
+Regras de domínio;
+Integração com serviços externos;
+Persistência;
+Tratamento de exceções;
+Casos de uso.
+
+
+# Considerações Finais
+
+As correções implementadas priorizaram:
+
+Segurança;
+Integridade dos valores;
+Validação dos dados;
+Tratamento de erros;
+Integração com a Asaas;
+Organização do código;
+Separação de responsabilidades;
+Experiência do usuário;
+Testes automatizados;
+Documentação.
+
+As melhorias acima foram identificadas durante a análise técnica e ficam registradas como próximos passos para uma evolução do projeto em ambiente de produção.
