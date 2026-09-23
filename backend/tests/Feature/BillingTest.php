@@ -142,5 +142,17 @@ class BillingTest extends TestCase
             return $request->url() === 'https://sandbox.asaas.com/api/v3/payments'
                 && $request['value'] === 79.90;
         });
+
+        $this->assertDatabaseHas('billings', [
+            'id' => $billing->id,
+            'amount' => 79.90,
+            'status' => 'paid',
+        ]);
+
+        $this->assertDatabaseHas('payments', [
+            'billing_id' => $billing->id,
+            'amount_paid' => 79.90,
+            'status' => 'CONFIRMED',
+        ]);
     }
 }

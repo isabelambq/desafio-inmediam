@@ -187,16 +187,19 @@ Essas operações passaram a ser realizadas dentro de uma `DB::transaction()`.
 **Motivo:**
 Garantir que o pagamento e a atualização da cobrança sejam persistidos de forma atômica no banco local.
 
-### 16. Configuração do ambiente de execução
+## 16. Configuração de debug
 
-**Problema:**
-O modo de debug poderia expor informações detalhadas da aplicação em respostas de erro.
+### Problema
 
-**Correção:**
-O `APP_DEBUG` foi configurado como `false`.
+O modo debug deve ser desabilitado em ambientes de produção para evitar a exposição de informações internas da aplicação.
 
-**Motivo:**
-Evitar a exposição de informações internas da aplicação em ambiente de execução.
+### Correção
+
+Foi verificado/configurado `APP_DEBUG=false` no ambiente de execução utilizado para os testes.
+
+### Motivo
+
+Evitar a exposição de informações internas da aplicação em ambientes de produção.
 
 ### 17. Atualização da versão do PostgreSQL na documentação
 
@@ -373,12 +376,12 @@ Eliminar o warning de depreciação e manter a configuração do TypeScript comp
 
 ## Testes realizados
 
-### Testes automatizados
+## Testes automatizados
 
 A suíte automatizada foi executada com sucesso:
 
 - `php artisan test` — suíte completa executada com sucesso.
-- `php artisan test --filter=BillingTest` — 4 testes e 5 assertions executados com sucesso.
+- `php artisan test --filter=BillingTest` — 4 testes e 7 assertions executados com sucesso.
 - `npm.cmd run build` — build de produção do frontend executado com sucesso.
 
 O `BillingTest` cobre os seguintes cenários:
@@ -387,8 +390,12 @@ O `BillingTest` cobre os seguintes cenários:
 - Tentativa de pagamento de cobrança já paga retorna `409`.
 - Cartão expirado é rejeitado com `422`.
 - O valor utilizado no pagamento corresponde ao valor da cobrança armazenado no backend, independentemente do `amount` enviado pelo cliente.
+- Após um pagamento confirmado, a cobrança é atualizada para o status `paid`.
+- Após um pagamento confirmado, um registro de pagamento é criado com o valor correto e status `CONFIRMED`.
 
 O teste de valor da cobrança utiliza `Http::fake()` para simular a comunicação com a Asaas sem realizar uma chamada externa real.
+
+Além de validar o valor enviado à Asaas, o teste também verifica o estado final dos dados no banco de dados após o pagamento.
 
 ### Testes manuais
 
@@ -511,7 +518,7 @@ Ajustar o preenchimento do campo `paid_at`.
 
 Atualmente é utilizado:
 
-`paid_at' => now()`
+`'paid_at' => now()`
 
 Em produção, quando disponível, deverá ser considerada a data/hora efetiva de confirmação informada pela Asaas, permitindo maior precisão no histórico do pagamento
 
