@@ -12,9 +12,11 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 
 // Valida os dados no frontend antes de enviar o pagamento para o backend.
-// O cartão considera também os espaços da máscara visual.
 const paymentSchema = z.object({
-  cardNumber: z.string().min(13).max(23),
+  cardNumber: z
+    .string()
+    .transform((value) => value.replace(/\D/g, ''))
+    .pipe(z.string().min(13).max(19)),
   holderName: z.string().min(2),
   expiryDate: z.string().regex(/^(0[1-9]|1[0-2])\/\d{2}$/),
   cvv: z.string().min(3).max(4),

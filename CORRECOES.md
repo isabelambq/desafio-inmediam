@@ -376,7 +376,7 @@ Eliminar o warning de depreciação e manter a configuração do TypeScript comp
 
 ## Testes realizados
 
-## Testes automatizados
+### Testes automatizados
 
 A suíte automatizada foi executada com sucesso:
 
@@ -520,32 +520,32 @@ Atualmente é utilizado:
 
 `'paid_at' => now()`
 
-Em produção, quando disponível, deverá ser considerada a data/hora efetiva de confirmação informada pela Asaas, permitindo maior precisão no histórico do pagamento
+Em produção, quando disponível, deverá ser considerada a data/hora efetiva de confirmação informada pela Asaas, permitindo maior precisão no histórico do pagamento.
 
 ## 12. Evolução das camadas de arquitetura
 
 Conforme a aplicação cresça, a arquitetura poderá evoluir para separar ainda mais as responsabilidades de:
 
-Regras de domínio;
-Integração com serviços externos;
-Persistência;
-Tratamento de exceções;
-Casos de uso.
+- Regras de domínio;
+- Integração com serviços externos;
+- Persistência;
+- Tratamento de exceções;
+- Casos de uso.
 
 
 # Considerações Finais
 
 As correções implementadas priorizaram:
 
-Segurança;
-Integridade dos valores;
-Validação dos dados;
-Tratamento de erros;
-Integração com a Asaas;
-Organização do código;
-Separação de responsabilidades;
-Experiência do usuário;
-Testes automatizados;
-Documentação.
+- Segurança;
+- Integridade dos valores;
+- Validação dos dados;
+- Tratamento de erros;
+- Integração com a Asaas;
+- Organização do código;
+- Separação de responsabilidades;
+- Experiência do usuário;
+- Testes automatizados;
+- Documentação.
 
 As melhorias acima foram identificadas durante a análise técnica e ficam registradas como próximos passos para uma evolução do projeto em ambiente de produção.

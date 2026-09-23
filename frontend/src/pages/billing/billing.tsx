@@ -72,7 +72,9 @@ export function Billing() {
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Vencimento</span>
             <span className="text-normal text-foreground">
-              {data?.due_date}
+              {data?.due_date
+                ? new Date(`${data.due_date}T00:00:00`).toLocaleDateString('pt-BR')
+                : '-'}
             </span>
           </div>
 
